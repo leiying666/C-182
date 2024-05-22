@@ -1,0 +1,494 @@
+#define _CRT_SECURE_NO_WARNINGS 1
+#ifdef UNICODE
+#undef UNICODE
+#endif
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<easyx.h>
+#include<Windows.h>
+#include<graphics.h>
+#include<mmsystem.h>
+#define MAXMUSIC 10
+#pragma comment(lib,"winmm.lib")
+enum Menuop
+{
+	Author,
+	Start,
+	Qmusic,
+	Smusic,
+	Stop,
+	Home
+};
+enum Menuop menuState=Home;
+struct Resource
+{
+	IMAGE img_start[3];
+}res;
+struct button
+{
+	int x;
+	int y;
+	int w;
+	int h;
+	COLORREF color;
+	char* ptext;
+};
+int num = 1, num_piece, which=1,flag=1;
+int piece[20][20];
+//初始化按钮属性
+struct button* createbutton(int x, int y, int w, int h, COLORREF color, const char* ptext)
+{
+	struct button* pB = (struct button*)malloc(sizeof(struct button));
+	pB->x = x;
+	pB->y = y;
+	pB->w = w;
+	pB->h = h;
+	pB->color = color;
+	pB->ptext = (char*)malloc(strlen(ptext)+1);
+	strcpy(pB->ptext, ptext);
+	return pB;
+}
+void drawbutton(struct button* pB)
+{
+	setfillcolor(pB->color);
+	settextstyle(35, 0, "楷体");
+	setlinecolor(BLACK);
+	setbkmode(TRANSPARENT);
+	fillrectangle(pB->x, pB->y, pB->x + pB->w, pB->y + pB->h);
+	outtextxy(pB->x + 15, pB->y + 15, pB->ptext);
+}
+void Draw_button()
+{
+	struct button* rh = createbutton(920,53,170, 60,RGB(35,253,249), "返回主页");
+	struct button* pvp = createbutton(920, 143, 170, 60, RGB(35, 253, 249), "双人对决");
+	struct button* pve = createbutton(920, 233, 170, 60, RGB(35, 253, 249), "人机大战");
+	struct button* hq = createbutton(920, 323, 170, 60, RGB(35, 253, 249), "落子有悔");
+	struct button* qm = createbutton(920, 413, 170, 60, RGB(35, 253, 249), "切换音乐");
+	struct button* sm = createbutton(920, 503, 170, 60, RGB(35, 253, 249), "暂停音乐");
+	struct button* rm = createbutton(920, 593, 170, 60, RGB(35, 253, 249), "继续音乐");
+	struct button* tc = createbutton(920, 683, 170, 60, RGB(35, 253, 249), "退出游戏");
+	drawbutton(rh);
+	drawbutton(pvp);
+	drawbutton(pve);
+	drawbutton(hq);
+	drawbutton(qm);
+	drawbutton(sm);
+	drawbutton(rm);
+	drawbutton(tc);
+}
+void initMusic(const char* music)
+{
+	char cmd[100] = { 0 };
+	sprintf(cmd, "open %s alias bgm%d", music, which);
+	MCIERROR ret = mciSendString(cmd, NULL, 0, NULL);
+	if (ret != 0)
+	{
+		char err[100] = { 0 };
+		mciGetErrorString(ret, err, sizeof(err));
+		printf("[open]:%s,%d\n", err,which);
+	}
+	which++;
+}
+void playMusic(int i)
+{
+	char cmd2[50] = { 0 };
+	sprintf(cmd2, "play bgm%d", i);
+	mciSendString(cmd2, NULL, 0, NULL);
+}
+//载入所有音乐
+void loadMusic()
+{
+	initMusic("src/summer.mp3");
+	initMusic("src/OneLastkiss.mp3");
+	initMusic("src/离别开出花.mp3");
+	initMusic("src/HandsUptotheSky.mp3");
+	initMusic("src/ShadowOfTheSun.mp3");
+	initMusic("src/我用什么把你留住(Live).mp3");
+	initMusic("src/Umbrella.mp3");
+	initMusic("src/CallofSilence.mp3");
+	initMusic("src/LilaS.mp3");
+	which = 1;
+}
+void stopMusic(int i)
+{
+	char cmd3[50] = { 0 };
+	sprintf(cmd3, "stop bgm%d", i);
+	mciSendString(cmd3, NULL, 0, NULL);
+	which++;
+	if (which == MAXMUSIC)
+	{
+		which=1;
+	}
+}
+void pauseMusic(int i)
+{
+	char cmd4[50] = { 0 };
+	sprintf(cmd4, "pause bgm%d", i);
+	mciSendString(cmd4, NULL, 0, NULL);
+	which++;
+	if (which == MAXMUSIC)
+	{
+		which = 1;
+	}
+}
+void resumeMusic(int i)
+{
+	char cmd5[50] = { 0 };
+	sprintf(cmd5, "resume bgm%d", i);
+	mciSendString(cmd5, NULL, 0, NULL);
+	which++;
+	if (which == MAXMUSIC)
+	{
+		which = 1;
+	}
+}
+void res_init(struct Resource* res)
+{
+	loadimage(res->img_start + 0, "src/主页面.jpg", 1200, 920);
+	loadimage(res->img_start + 1, "src/棋盘.jpg");
+	loadimage(res->img_start + 2, "src/制作者.jpg", 920, 920);
+}
+int change_piece(int x, int y)
+{
+	if (piece[x][y] != 0||x>=20||y>=20)
+		return 0;
+	else
+		piece[x][y] = num;
+	return 1;
+}
+int check_chess()
+{
+	if (num_piece == 361)
+	{
+		return 1;
+	}
+	return 0;
+}
+void draw_piece(int x, int y)
+{
+	if (num == 1)
+		setfillcolor(BLACK);
+	else
+		setfillcolor(WHITE);
+	int m = x / 48.5 + 1;
+	int n = y / 48.5 + 1;
+	if (change_piece(m, n) == 0)
+		return;
+	else
+	{
+		fillcircle(48.4 * m - 23.95, 48.4 * n - 23.95,20);
+		num *= -1;
+		num_piece++;
+	}
+	if (check_chess())
+	{
+		exit(0);
+	}
+}
+int check_over1(int x, int y)
+{
+	int c = 0;
+	if (piece[x][y] == 0)
+	{
+		return 0;
+	}
+	if (x >= 3 && x <= 17)
+	{
+		for (int m = -2; m <= 2; m++)
+		{
+			if (piece[x + m][y] != piece[x][y])
+				break;
+			else
+				c++;
+			if (c == 5)
+				return 1;
+		}
+		c = 0;
+	}
+	if (y >= 3 && y <= 17)
+	{
+		for (int j = y - 2; j <= y + 2; j++)
+		{
+			if (piece[x][j] != piece[x][y])
+				break;
+			else
+				c++;
+			if (c == 5)
+				return 1;
+		}
+		c = 0;
+	}
+	return 0;
+}
+int check_over2(int x, int y)
+{
+	int c = 0;
+	if (piece[x][y] == 0)
+	{
+		return 0;
+	}
+	for (int m = -2; m <= 2; m++)
+	{
+		if (piece[x + m][y] != piece[x][y])
+			break;
+		else
+			c++;
+		if (c == 5)
+			return 1;
+	}
+	c = 0;
+	for (int j = y - 2; j <= y + 2; j++)
+	{
+		if (piece[x][j] != piece[x][y])
+			break;
+		else
+			c++;
+		if (c == 5)
+			return 1;
+	}
+	c = 0;
+	for (int m = -2; m <= 2; m++)
+	{
+		if (piece[x + m][y + m] != piece[x][y])
+			break;
+		else
+			c++;
+		if (c == 5)
+			return 1;
+	}
+	c = 0;
+	for (int m = -2; m <= 2; m++)
+		if (piece[x - m][y + m] != piece[x][y])
+			return 0;
+	return 1;
+}
+int check_over()
+{
+	for (int i = 1; i < 20; i++)
+		for (int j = 1; j < 20; j++)
+		{
+			if (i < 3 || i>17 || j < 3 || j>17)
+			{
+				if (check_over1(i, j))
+					return piece[i][j];
+			}
+			else
+			{
+				if (check_over2(i, j))
+					return piece[i][j];
+			}
+		}
+	return 0;
+}
+//鼠标是否在矩形区域
+bool isInRect(ExMessage* msg, int x, int y, int w, int h)
+{
+	if (msg->x > x && msg->x<x + w && msg->y>y && msg->y < y + h)
+	{
+		return true;
+	}
+	return false;
+}
+//鼠标在双人对战时的鼠标判定,用mx，my代替原本的鼠标信息，x，y
+bool playpiece_isInRect(int mx, int my, int x, int y, int w, int h)
+{
+	if (mx > x && mx<x + w && my>y && my < y + h)
+	{
+		return true;
+	}
+	return false;
+}
+void playpiece_function(int x,int y)
+{
+	//返回主页
+	if (playpiece_isInRect(x, y, 920, 53, 170, 60))
+	{
+		printf("已经开始下棋，无法返回主页\n");
+	}
+	//切换音乐
+	if (playpiece_isInRect(x,y, 920, 413, 170, 60))
+	{
+		stopMusic(which);
+		playMusic(which);
+	}
+	//暂停音乐
+	if (playpiece_isInRect(x,y, 920, 503, 170, 60))
+	{
+		pauseMusic(which);
+	}
+	//继续音乐
+	if (playpiece_isInRect(x,y, 920, 593, 170, 60))
+	{
+		resumeMusic(which);
+	}
+	//退出游戏
+	if (playpiece_isInRect(x, y, 920, 683, 170, 60))
+	{
+		exit(0);
+	}
+}
+void playpiece()
+{
+	MOUSEMSG m;
+	while (1)
+	{
+		m = GetMouseMsg();
+		if (m.uMsg == WM_LBUTTONDOWN)
+		{
+			draw_piece(m.x, m.y);
+			playpiece_function(m.x, m.y);
+		}
+		if (check_over() == -1)
+		{
+			printf("游戏结束，胜者为白方");
+			exit(0);
+		}
+		if (check_over() == 1)
+		{
+			printf("游戏结束，胜者为黑方");
+			exit(0);
+		}
+	}
+}
+void startupscene()
+{
+	while (1)
+	{
+		ExMessage msg;
+		while (peekmessage(&msg, EM_MOUSE))
+		{
+			if (msg.message == WM_LBUTTONDOWN)
+			{
+				if (menuState == Home)
+				{
+					//制作者
+					if (isInRect(&msg, 93, 187, 217, 87))
+					{
+						menuState = Author;
+					}
+					//开始游戏
+					else if (isInRect(&msg, 83, 300, 247, 120))
+					{
+						menuState = Start;
+					}
+					//切换音乐
+					else if (isInRect(&msg, 110, 473, 227, 87))
+					{
+						menuState = Qmusic;
+					}
+					//停止音乐
+					else if (isInRect(&msg, 93, 573, 227, 90))
+					{
+						menuState = Smusic;
+					}
+					//退出游戏
+					else if (isInRect(&msg, 100, 710, 213, 87))
+					{
+						menuState = Stop;
+					}
+				}
+				if(menuState != Home)
+				{
+					switch (menuState)
+					{
+					case Author:
+						closegraph();
+						initgraph(900, 900, EX_SHOWCONSOLE);
+						putimage(0, 0, res.img_start + 2);
+						if (isInRect(&msg, 80, 120, 80, 40))
+						{
+							menuState = Home;
+							closegraph();
+							initgraph(1200, 920, EX_SHOWCONSOLE);
+							putimage(0, 0, res.img_start + 0);
+						}
+						break;
+					case Start:
+						if (flag)
+						{
+							closegraph();
+							initgraph(1100, 920, EX_SHOWCONSOLE);
+							setbkcolor(RGB(233, 187, 99));
+							cleardevice();
+							putimage(0, 0, res.img_start + 1);
+							Draw_button();
+							flag = 0;
+						}
+						//返回主页
+						if (isInRect(&msg, 920, 53, 170, 60))
+						{
+							menuState = Home;
+							closegraph();
+							initgraph(1200, 920, EX_SHOWCONSOLE);
+							putimage(0, 0, res.img_start + 0);
+							flag = 1;
+						}
+						//双人对决
+						if (isInRect(&msg, 920, 143, 170, 60))
+						{
+							playpiece();
+						}
+						//人机大战
+						if (isInRect(&msg, 920, 233, 170, 60))
+						{
+						}
+						//落子有悔
+						if (isInRect(&msg, 920, 323, 170, 60))
+						{
+						}
+						//切换音乐
+						if (isInRect(&msg, 920, 413, 170, 60))
+						{
+							stopMusic(which);
+							playMusic(which);
+						}
+						//暂停音乐
+						if (isInRect(&msg, 920, 503, 170, 60))
+						{
+							pauseMusic(which);
+						}
+						//继续音乐
+						if (isInRect(&msg, 920, 593, 170, 60))
+						{
+							resumeMusic(which);
+						}
+						//退出游戏
+						if (isInRect(&msg, 920, 683, 170, 60))
+						{
+							exit(0);
+						}
+						break;
+					case Qmusic:
+						stopMusic(which);
+						playMusic(which);
+						menuState = Home;
+						break;
+					case Smusic:
+						stopMusic(which);
+						menuState = Home;
+						break;
+					case Stop:
+						exit(0);
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+void initscene()
+{
+	SetConsoleTitle("五子棋");
+	initgraph(1200, 920, EX_SHOWCONSOLE);
+	res_init(&res);
+	putimage(0, 0, res.img_start + 0);
+}
+int main()
+{
+	loadMusic();
+	playMusic(which);
+	initscene();
+	startupscene();
+	return 0;
+}
